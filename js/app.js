@@ -12,7 +12,7 @@ function app(options) {
 };
 
 app.prototype.options = {};
-app.prototype.interval = 500;
+app.prototype.interval = 1000;
 app.prototype.timer = false;
 
 app.prototype.is_dragging = false;
@@ -57,16 +57,31 @@ app.prototype.init = function(o) {
 
 	}
 	
-	if (this.pointmap.e(x,y) && this.pointmap.e(x,y+1) && this.pointmap.e(x+1,y+1) && this.pointmap.e(x,y+1)) {
+	for (var i = 0; i < this.pointmap.length; i++) {
 
-		var s = new swatch({
-			src : "images/dog.png",
-			x : x,
-			y : y
-			// pass corners here -- remove all drawing stuff and move that to app redraw
-		});
-		this.swatches.push(s);
-		
+		var c_point = this.pointmap.i(i);
+
+		var x = c_point.gridx;
+		var y = c_point.gridy;
+
+		if (this.pointmap.e(x,y) && this.pointmap.e(x,y+1) && this.pointmap.e(x+1,y+1) && this.pointmap.e(x,y+1)) {
+	
+			this.swatches.push(new swatch({
+				src : "http://hal.ajbnet.com/Cloth/images/dog.png",
+				x : x,
+				y : y,
+				edges : {
+					tl : this.pointmap.e(x,y),
+					tr : this.pointmap.e(x+1,y),
+					br : this.pointmap.e(x+1,y+1),
+					bl : this.pointmap.e(x,y+1)
+				},
+				canvas : this.options.canvas,
+				context : this.options.context
+				// pass corners here -- remove all drawing stuff and move that to app redraw
+			}));
+	
+		}
 	}
 
 };
@@ -124,56 +139,20 @@ app.prototype.cycle = function() {
 	context.clearRect ( 0 , 0 , w , h );
 
 	// Redraw!
-
+	/*
 	for (var i = 0; i < this.pointmap.length; i++) {
 
 		var c_point = this.pointmap.i(i);
-		
-		
-
 		context.fillText(c_point.gridx + ", " + c_point.gridy, c_point.x, c_point.y);
 
-		continue;
+	}
+	*/
 
+	for(var i =0; i < this.swatches.length; i++) {
 
-		// context.beginPath();
-		// context.arc(c_point.x, c_point.y, 3, 0, Math.PI*2, true);
-		// context.closePath();
-		// context.fill();
+		this.swatches[i].clear();
+		this.swatches[i].draw();
 
-		var x = c_point.gridx;
-		var y = c_point.gridy;
-
-		if (this.pointmap.e(x,y) && this.pointmap.e(x,y+1) && this.pointmap.e(x+1,y+1) && this.pointmap.e(x,y+1)) {
-
-			// context.beginPath();
-
-			/*
-
-			context.fillStyle = "rgba(" + parseInt(Math.random() * 255) + "," + parseInt(Math.random() * 255) + "," + parseInt(Math.random() * 255) + ",1)";
-			context.fillRect(
-				this.pointmap.e(x,y).x,
-				this.pointmap.e(x,y).y,
-				this.pointmap.e(x + 1,y + 1).x -	this.pointmap.e(x,y).x,
-				this.pointmap.e(x + 1,y + 1).y -	this.pointmap.e(x,y).y
-			);
-
-			context.moveTo(this.pointmap.e(x,y).x, this.pointmap.e(x,y).y);
-			context.lineTo(this.pointmap.e(x,y).x, this.pointmap.e(x,y).y );
-			context.lineTo(this.pointmap.e(x+1,y+1).x, this.pointmap.e(x+1,y+1).y );
-
-			context.moveTo(this.pointmap.e(x,y+1).x, this.pointmap.e(x,y+1).y );
-			context.lineTo(this.pointmap.e(x,y+1).x, this.pointmap.e(x,y+1).y );
-			context.lineTo(this.pointmap.e(x+1,y).x, this.pointmap.e(x+1,y).y );
-
-			context.closePath();
-
-			context.stroke();
-			context.fill();
-			
-			*/
-
-		}
 	}
 
 };
@@ -212,33 +191,78 @@ function swatch(options) {
 
 	var _swatch = this;
 
+	this.canvas = options.canvas;
 	this.context = options.context;
 	this.x = options.x;
 	this.y = options.y;
+	this.edges = options.edges;
 
 	this.image = new Image();
-	this.image.load = function() {
+	this.image.onload = function() {
 		_swatch.ready();
 	};
+	
+	// remove these if it works for some reason
+	var z = document.getElementById("load_dump");
+		z.appendChild(this.image);
+	
 	this.image.src = options.src;
+
+	this.clone_canvas = document.createElement("canvas");
+	this.clone_context = this.clone_canvas.getContext("2d");
 
 	return this;
 
 };
 
+swatch.prototype.canvas = null;
+swatch.prototype.context = null;
+
 swatch.prototype.image = null;
-swatch.prototype.x = 0;
+swatch.prototype.image_loaded = false;
+
+swatch.prototype.x = 0; // these are included in the edges ... might be able to just rmove it, unless this is the original grid position
 swatch.prototype.y = 0;
 
 swatch.prototype.edges = {
-	t : -1,
-	r : -1,
-	b : -1,
-	l : -1
+	tl : -1,
+	tr : -1,
+	br : -1,
+	bl : -1
 };
 
-swatch.prototype.ready = function() {};
+swatch.prototype.ready = function() {
 
+	// console.log("FUCK YEAH", this.x, this.y);
+	this.image_loaded = true;
+
+};
+
+swatch.prototype.clear = function() {
+
+	// console.log( "CLEARING!" );
+	// clear rect?  skew?
+
+};
+
+swatch.prototype.draw = function() {
+
+	if (false === this.image_loaded)
+		return false;
+
+	return;
+
+	// this.context.putImageData(this.image, 0, 0, 0, 0, 100, 100);
+	this.clone_context.clearRect(0,0,this.image.naturalx, this.image.naturaly);
+	this.clone_context.drawImage(this.image, this.edges.tl.x, this.edges.tl.y);
+	
+	// image, dx, dy, dirtyX, dirtyY, dirtyWidth, dirtyHeight) 
+
+	// soon: resize
+	// this.context
+	// this.context. ... etc
+
+};
 
 
 
@@ -255,7 +279,9 @@ point.prototype.x = 0;
 point.prototype.y = 0;
 point.prototype.gridx = 0;
 point.prototype.gridy = 0;
-// point.prototype.meta = {};
+
+
+
 
 function point_map() {
 	return this;	
