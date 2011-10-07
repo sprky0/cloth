@@ -12,7 +12,7 @@ function app(options) {
 };
 
 app.prototype.options = {};
-app.prototype.interval = 1000;
+app.prototype.interval = 10;
 app.prototype.timer = false;
 
 app.prototype.is_dragging = false;
@@ -126,10 +126,8 @@ app.prototype.cycle = function() {
 		var t = this.get_point_near( this.user_x, this.user_y );
 		var p = this.pointmap.e( t.x, t.y );
 
-		p.x = this.user_x;
-		p.y = this.user_y;
-		
-		console.log( p );
+		p.set_x(this.user_x);
+		p.set_y(this.user_y);
 
 	}
 
@@ -203,8 +201,8 @@ function swatch(options) {
 	};
 	
 	// remove these if it works for some reason
-	var z = document.getElementById("load_dump");
-		z.appendChild(this.image);
+	// var z = document.getElementById("load_dump");
+	///	z.appendChild(this.image);
 	
 	this.image.src = options.src;
 
@@ -214,6 +212,9 @@ function swatch(options) {
 	return this;
 
 };
+
+// first draw
+swatch.prototype.drawn = false;
 
 swatch.prototype.canvas = null;
 swatch.prototype.context = null;
@@ -233,14 +234,12 @@ swatch.prototype.edges = {
 
 swatch.prototype.ready = function() {
 
-	// console.log("FUCK YEAH", this.x, this.y);
 	this.image_loaded = true;
 
 };
 
 swatch.prototype.clear = function() {
 
-	// console.log( "CLEARING!" );
 	// clear rect?  skew?
 
 };
@@ -250,17 +249,41 @@ swatch.prototype.draw = function() {
 	if (false === this.image_loaded)
 		return false;
 
-	return;
+	// only draw if we need to
+	if (!this.drawn || this.edges.tl.has_changed() || this.edges.tr.has_changed() || this.edges.bl.has_changed() || this.edges.br.has_changed()) {
 
-	// this.context.putImageData(this.image, 0, 0, 0, 0, 100, 100);
-	this.clone_context.clearRect(0,0,this.image.naturalx, this.image.naturaly);
-	this.clone_context.drawImage(this.image, this.edges.tl.x, this.edges.tl.y);
+		// this.context.drawImage(this.image, this.edges.tl.x, this.edges.tl.y); // , 0, 0, 100, 100);
+
+		var p = new proj({
+			canvas: this.canvas,
+			subdivisionLimit : 10,
+			patchSize : 100
+		});
 	
-	// image, dx, dy, dirtyX, dirtyY, dirtyWidth, dirtyHeight) 
+		p.distort(
+			this.image, this.context,
+			this.edges.tl.x, this.edges.tl.y,
+			this.edges.tr.x, this.edges.tr.y,
+			this.edges.bl.x, this.edges.bl.y,
+			this.edges.br.x, this.edges.br.y
+		);
 
-	// soon: resize
-	// this.context
-	// this.context. ... etc
+		this.drawn = true;
+	
+		// return;
+	
+		// this.context.putImageData(this.image, 0, 0, 0, 0, 100, 100);
+		// this.clone_context.clearRect(0,0,this.image.naturalx, this.image.naturaly);
+		// this.clone_context.drawImage(this.image, this.edges.tl.x, this.edges.tl.y);
+		
+		// image, dx, dy, dirtyX, dirtyY, dirtyWidth, dirtyHeight) 
+	
+		// soon: resize
+		// this.context
+		// this.context. ... etc
+	}
+	
+	return false;
 
 };
 
@@ -269,16 +292,40 @@ swatch.prototype.draw = function() {
 
 // pixel x y vs gridxy
 function point(x,y, gridx, gridy) {
+
 	this.x = x;
 	this.y = y;
+
+	this.last_x = x;
+	this.last_y = y;
+
 	this.gridx = gridx || 0;
 	this.gridy = gridy || 0;
+
 	return this;
 }
+
 point.prototype.x = 0;
 point.prototype.y = 0;
+point.prototype.last_x = 0;
+point.prototype.last_y = 0;
+
 point.prototype.gridx = 0;
 point.prototype.gridy = 0;
+
+point.prototype.set_x = function(x) {
+	this.last_x = this.x;
+	this.x = x;
+}
+
+point.prototype.set_y = function(y) {
+	this.last_y = this.y;
+	this.y = y;
+}
+
+point.prototype.has_changed = function() {
+	return (this.x != this.last_x || this.y != this.last_y);
+}
 
 
 

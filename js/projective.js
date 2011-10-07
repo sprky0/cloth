@@ -2,28 +2,29 @@
 function proj(options) {
 
 	for(i in options)
-		this.options[i] = options;
+		this[i] = options[i];
 
 	return this;
 
 };
 
-proj.prototype.options = {
-	wireframe: true,
-	// image : false,
-	subdivisionLimit: 5,
-	patchSize: 64
-};
+proj.prototype.wireframe = true;
+proj.prototype.subdivisionLimit = 4;
+proj.prototype.patchSize = 50;
+
+proj.prototype.counter = 0;
 
 proj.prototype.mode = "image_src"; // or image_data
 
 proj.prototype.image_src = false;
 proj.prototype.imagedata = false;
 
-
 proj.prototype.offset = null;
 proj.prototype.canvas = null;
 proj.prototype.ctx = null;
+
+proj.prototype.target_ctx = null;
+
 proj.prototype.transform = null;
 proj.prototype.image = null;
 proj.prototype.iw = 0;
@@ -41,7 +42,7 @@ proj.prototype.load = function(image, callback) {
 		this.mode = "image_src";
 		this.image_src = new Image();
 		this.image_src.onload = callback;
-		this.image_src.src = image; // this.options.image;
+		this.image_src.src = image; // this.image;
 
 	} else {
 
@@ -56,7 +57,10 @@ proj.prototype.load = function(image, callback) {
 /**
  * Update the display to match a new point configuration.
  */
-proj.prototype.update = function(x1,y1,x2,y2,x3,y3,x4,y4) {
+proj.prototype.update = function(x1,y1,x2,y2,x3,y3,x4,y4,dst) {
+
+	if (dst)
+		this.target_ctx = dst;
 
 	// Get extents.
 	var minX = Infinity,
@@ -126,7 +130,7 @@ proj.prototype.update = function(x1,y1,x2,y2,x3,y3,x4,y4) {
 	this.ctx = this.canvas.getContext("2d");
 	this.ctx.translate(-minX, -minY);
 	this.ctx.clearRect(minX, minY, width, height);
-	this.ctx.strokeStyle = "rgb(220,0,100)";
+	this.ctx.strokeStyle = "rgb(0,255,0)";
 
 	transform = this.getProjectiveTransform(points);
 
@@ -144,9 +148,9 @@ proj.prototype.update = function(x1,y1,x2,y2,x3,y3,x4,y4) {
 	this.ctx.closePath();
 	this.ctx.clip();
 
-	this.divide(0, 0, 1, 1, ptl, ptr, pbl, pbr, this.options.subdivisionLimit);
+	this.divide(0, 0, 1, 1, ptl, ptr, pbl, pbr, this.subdivisionLimit);
 
-	if (this.options.wireframe) {
+	if (this.wireframe) {
 		this.ctx.beginPath();
 		this.ctx.moveTo(ptl[0], ptl[1]);
 		this.ctx.lineTo(ptr[0], ptr[1]);
@@ -178,7 +182,7 @@ proj.prototype.divide = function(u1, v1, u4, v4, p1, p2, p3, p4, limit) {
 	
 		// Check area > patchSize pixels (note factor 4 due to not averaging d1 and d2)
 		// The non-affinity measure is used as a correction factor.
-		if ((u1 == 0 && u4 == 1) || ((.25 + r * 5) * area > (this.options.patchSize * this.options.patchSize))) {
+		if ((u1 == 0 && u4 == 1) || ((.25 + r * 5) * area > (this.patchSize * this.patchSize))) {
 			// Calculate subdivision points (middle, top, bottom, left, right).
 			var umid = (u1 + u4) / 2;
 			var vmid = (v1 + v4) / 2;
@@ -195,7 +199,7 @@ proj.prototype.divide = function(u1, v1, u4, v4, p1, p2, p3, p4, limit) {
 			this.divide(u1, vmid, umid, v4, pl, pmid, p3, pb, limit);
 			this.divide(umid, vmid, u4, v4, pmid, pr, pb, p4, limit);
 	
-			if (this.options.wireframe) {
+			if (this.wireframe) {
 				this.ctx.beginPath();
 				this.ctx.moveTo(pt[0], pt[1]);
 				this.ctx.lineTo(pb[0], pb[1]);
@@ -276,6 +280,7 @@ proj.prototype.divide = function(u1, v1, u4, v4, p1, p2, p3, p4, limit) {
 	
 	var image = this.mode == "image_src" ? this.image_src : this.image_data;
 
+	// target ??
 	this.ctx.drawImage(
 		image,
 		u1 * this.iw,
@@ -287,6 +292,7 @@ proj.prototype.divide = function(u1, v1, u4, v4, p1, p2, p3, p4, limit) {
 	);
 
 	this.ctx.restore();
+
 }
 
 /**
@@ -308,16 +314,14 @@ proj.prototype.createCanvas = function(x, y, width, height) {
 proj.prototype.getProjectiveTransform = function(points) {
 
 	var eqMatrix = new Matrix(9, 8, [
-	[ 1, 1, 1,	 0, 0, 0, -points[3][0],-points[3][0],-points[3][0] ], 
-	[ 0, 1, 1,	 0, 0, 0,	0,-points[2][0],-points[2][0] ],
-	[ 1, 0, 1,	 0, 0, 0, -points[1][0], 0,-points[1][0] ],
-	[ 0, 0, 1,	 0, 0, 0,	0, 0,-points[0][0] ],
-
-	[ 0, 0, 0,	-1,-1,-1,	points[3][1], points[3][1], points[3][1] ],
-	[ 0, 0, 0,	 0,-1,-1,	0, points[2][1], points[2][1] ],
-	[ 0, 0, 0,	-1, 0,-1,	points[1][1], 0, points[1][1] ],
-	[ 0, 0, 0,	 0, 0,-1,	0, 0, points[0][1] ]
-
+		[ 1, 1, 1,	 0, 0, 0, -points[3][0],-points[3][0],-points[3][0] ], 
+		[ 0, 1, 1,	 0, 0, 0,	0,-points[2][0],-points[2][0] ],
+		[ 1, 0, 1,	 0, 0, 0, -points[1][0], 0,-points[1][0] ],
+		[ 0, 0, 1,	 0, 0, 0,	0, 0,-points[0][0] ],
+		[ 0, 0, 0,	-1,-1,-1,	points[3][1], points[3][1], points[3][1] ],
+		[ 0, 0, 0,	 0,-1,-1,	0, points[2][1], points[2][1] ],
+		[ 0, 0, 0,	-1, 0,-1,	points[1][1], 0, points[1][1] ],
+		[ 0, 0, 0,	 0, 0,-1,	0, 0, points[0][1] ]
 	]);
 	
 	var kernel = eqMatrix.rowEchelon().values;
@@ -333,28 +337,27 @@ proj.prototype.getProjectiveTransform = function(points) {
 /**
  * Initialize the handles and canvas.
  */
-proj.prototype.init = function() {
+proj.prototype.distort = function(src,dst,x1,y1,x2,y2,x3,y3,x4,y4) {
 
 	// non DOM transform canvas:
 	// Create canvas and load image.
-	this.canvas = this.createCanvas(0, 0, 600, 600);
+	// make a canvas the right size as the final here:
 
-	var d = document.getElementsByTagName("BODY")[0];
-		d.appendChild(this.canvas);
+	if (!this.canvas)
+		this.canvas = this.createCanvas(0, 0, 10000, 10000);
 
 	var _proj = this;
 
-	this.load('images/dog.png', function(){
+	this.load(src, function(){
 
 		_proj.update(
-			0,0,
-			200,0,
-			0,200,
-			200,200
+			x1,y1,
+			x2,y2,
+			x3,y3,
+			x4,y4,
+			dst
 		);
 
 	});
 
-	// Render image.
-	// this.update = function(x1,y1,x2,y2,x3,y3,x4,y4) {
 };
