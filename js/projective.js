@@ -9,6 +9,7 @@ function proj(options) {
 };
 
 proj.prototype.wireframe = true;
+
 proj.prototype.subdivisionLimit = 4;
 proj.prototype.patchSize = 50;
 
@@ -159,8 +160,11 @@ proj.prototype.update = function(x1,y1,x2,y2,x3,y3,x4,y4,dst) {
 		this.ctx.closePath();
 		this.ctx.stroke();
 	}
+	
+	// this.target_ctx.putImageData( this.ctx.getImageData() , 0, 0 );
+	this.target_ctx.drawImage( this.canvas, 0, 0 );
 
-}
+};
 
 /**
  * Render a projective patch.
@@ -277,7 +281,7 @@ proj.prototype.divide = function(u1, v1, u4, v4, p1, p2, p3, p4, limit) {
 	var dv = (v4 - v1);
 	var padu = padx * du;
 	var padv = pady * dv;
-	
+
 	var image = this.mode == "image_src" ? this.image_src : this.image_data;
 
 	// target ??
@@ -293,7 +297,7 @@ proj.prototype.divide = function(u1, v1, u4, v4, p1, p2, p3, p4, limit) {
 
 	this.ctx.restore();
 
-}
+};
 
 /**
  * Create a canvas at the specified coordinates.
@@ -303,7 +307,7 @@ proj.prototype.createCanvas = function(x, y, width, height) {
 	var c = document.createElement('canvas');
 		c.width = width;
 		c.height = height;
-		
+
 	return c;
 
 };
@@ -346,6 +350,10 @@ proj.prototype.distort = function(src,dst,x1,y1,x2,y2,x3,y3,x4,y4) {
 	if (!this.canvas)
 		this.canvas = this.createCanvas(0, 0, 10000, 10000);
 
+	// this.target_ctx = dst;
+
+	this.divisions = 0;
+
 	var _proj = this;
 
 	this.load(src, function(){
@@ -361,3 +369,13 @@ proj.prototype.distort = function(src,dst,x1,y1,x2,y2,x3,y3,x4,y4) {
 	});
 
 };
+
+proj.prototype.destroy = function() {
+	
+	console.log("KILLING!");
+	
+	delete(this.ctx)
+	delete(this.canvas);
+	delete(this);	
+	
+}

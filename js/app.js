@@ -12,7 +12,7 @@ function app(options) {
 };
 
 app.prototype.options = {};
-app.prototype.interval = 10;
+app.prototype.interval = 400;
 app.prototype.timer = false;
 
 app.prototype.is_dragging = false;
@@ -65,11 +65,11 @@ app.prototype.init = function(o) {
 		var y = c_point.gridy;
 
 		if (this.pointmap.e(x,y) && this.pointmap.e(x,y+1) && this.pointmap.e(x+1,y+1) && this.pointmap.e(x,y+1)) {
-	
+
 			this.swatches.push(new swatch({
 				src : "http://hal.ajbnet.com/Cloth/images/dog.png",
-				x : x,
-				y : y,
+				x : c_point.gridx,
+				y : c_point.gridy,
 				edges : {
 					tl : this.pointmap.e(x,y),
 					tr : this.pointmap.e(x+1,y),
@@ -80,7 +80,7 @@ app.prototype.init = function(o) {
 				context : this.options.context
 				// pass corners here -- remove all drawing stuff and move that to app redraw
 			}));
-	
+
 		}
 	}
 
@@ -94,16 +94,18 @@ app.prototype.run = function() {
 
 	// return;
 
-	this.timer = setInterval(
-		function() {_app.cycle();},
-		this.interval
-	);
+	// this.timer = setTimeout(
+	//	function() {_app.cycle();},
+	//	this.interval
+	// );
+
+	_app.cycle(true);
 	
 	return this;
 
 };
 
-app.prototype.cycle = function() {
+app.prototype.cycle = function(loop) {
 
 	// Local vars
 
@@ -131,11 +133,6 @@ app.prototype.cycle = function() {
 
 	}
 
-	// Clear
-	
-	// @todo -- only clear + redraw parts that are updated
-	context.clearRect ( 0 , 0 , w , h );
-
 	// Redraw!
 	/*
 	for (var i = 0; i < this.pointmap.length; i++) {
@@ -151,6 +148,17 @@ app.prototype.cycle = function() {
 		this.swatches[i].clear();
 		this.swatches[i].draw();
 
+	}
+
+	if (loop) {
+		
+		var _app = this;
+	
+		this.timer = setTimeout(
+			function() {_app.cycle(true);},
+			this.interval
+		);
+		
 	}
 
 };
@@ -172,13 +180,18 @@ app.prototype.move_to = function(x,y) {
 
 app.prototype.get_point_near = function(x,y) {
 
+//	console.log( x, y );
+
 	x = Math.round( x / this.options.x_scale );
 	y = Math.round( y / this.options.y_scale );
 
-	// maybe keep a distance map too -- actual positions, and check against that?  then their original position can be the "return" and their current position is more accurate
+//	x = parseInt(x / this.options.x_scale);
+//	y = parseInt(y / this.options.y_scale);
+
+//	x = 0;
+//	y = 0;
 
 	return {x:x,y:y};
-
 };
 
 
@@ -187,27 +200,32 @@ app.prototype.get_point_near = function(x,y) {
  */
 function swatch(options) {
 
-	var _swatch = this;
-
 	this.canvas = options.canvas;
 	this.context = options.context;
 	this.x = options.x;
 	this.y = options.y;
 	this.edges = options.edges;
 
-	this.image = new Image();
-	this.image.onload = function() {
-		_swatch.ready();
-	};
-	
-	// remove these if it works for some reason
-	// var z = document.getElementById("load_dump");
-	///	z.appendChild(this.image);
-	
-	this.image.src = options.src;
+	if (typeof(options.src) == "string") {
 
-	this.clone_canvas = document.createElement("canvas");
-	this.clone_context = this.clone_canvas.getContext("2d");
+		var _swatch = this;
+
+		this.image = new Image();
+		this.image.onload = function() {
+			_swatch.ready();
+		};
+		this.image.src = options.src;
+
+	} else {
+
+		// cloned image data?
+		this.image = image.src;	
+		this.ready();
+
+	}
+
+//	this.clone_canvas = document.createElement("canvas");
+//	this.clone_context = this.clone_canvas.getContext("2d");
 
 	return this;
 
@@ -222,7 +240,8 @@ swatch.prototype.context = null;
 swatch.prototype.image = null;
 swatch.prototype.image_loaded = false;
 
-swatch.prototype.x = 0; // these are included in the edges ... might be able to just rmove it, unless this is the original grid position
+// these are included in the edges ... might be able to just rmove it, unless this is the original grid position
+swatch.prototype.x = 0;
 swatch.prototype.y = 0;
 
 swatch.prototype.edges = {
@@ -240,7 +259,10 @@ swatch.prototype.ready = function() {
 
 swatch.prototype.clear = function() {
 
-	// clear rect?  skew?
+	// if (this.drawn && (this.edges.tl.has_changed() || this.edges.tr.has_changed() || this.edges.bl.has_changed() || this.edges.br.has_changed())) {
+	// this doesn't take into account the skew -- would be bad news
+	// this.context.clearRect ( 0 , 0 , 50 , 50 );
+	// }
 
 };
 
@@ -252,14 +274,13 @@ swatch.prototype.draw = function() {
 	// only draw if we need to
 	if (!this.drawn || this.edges.tl.has_changed() || this.edges.tr.has_changed() || this.edges.bl.has_changed() || this.edges.br.has_changed()) {
 
-		// this.context.drawImage(this.image, this.edges.tl.x, this.edges.tl.y); // , 0, 0, 100, 100);
-
 		var p = new proj({
-			canvas: this.canvas,
-			subdivisionLimit : 10,
-			patchSize : 100
+			// canvas: this.canvas,
+			// target : this.context,
+			subdivisionLimit : 2, // very low res scaling to keep things fast :(
+			patchSize : 500
 		});
-	
+
 		p.distort(
 			this.image, this.context,
 			this.edges.tl.x, this.edges.tl.y,
@@ -268,19 +289,10 @@ swatch.prototype.draw = function() {
 			this.edges.br.x, this.edges.br.y
 		);
 
+		p.destroy();
+
 		this.drawn = true;
-	
-		// return;
-	
-		// this.context.putImageData(this.image, 0, 0, 0, 0, 100, 100);
-		// this.clone_context.clearRect(0,0,this.image.naturalx, this.image.naturaly);
-		// this.clone_context.drawImage(this.image, this.edges.tl.x, this.edges.tl.y);
-		
-		// image, dx, dy, dirtyX, dirtyY, dirtyWidth, dirtyHeight) 
-	
-		// soon: resize
-		// this.context
-		// this.context. ... etc
+
 	}
 	
 	return false;
